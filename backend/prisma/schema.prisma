@@ -1,0 +1,174 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ USUARIOS ============
+model User {
+  id        Int     @id @default(autoincrement())
+  email     String  @unique
+  password  String
+  name      String
+  role      String  @default("user") // "admin" ou "user"
+  active    Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relações
+  contacts  Contact[]
+  conversations Conversation[]
+  activities Activity[]
+  automations Automation[]
+}
+
+// ============ CONTATOS ============
+model Contact {
+  id        Int     @id @default(autoincrement())
+  name      String
+  phone     String  @unique
+  email     String?
+  company   String?
+  status    String  @default("lead") // "lead", "cliente", "perdido"
+  tags      String? // JSON array como string
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relações
+  userId    Int
+  user      User @relation(fields: [userId], references: [id])
+  conversations Conversation[]
+  activities Activity[]
+  kanbanCards KanbanCard[]
+  
+  @@index([userId])
+}
+
+// ============ CONVERSAS WHATSAPP ============
+model Conversation {
+  id        Int     @id @default(autoincrement())
+  status    String  @default("open") // "open", "closed", "pending"
+  lastMessage String?
+  unreadCount Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relações
+  contactId Int
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User @relation(fields: [userId], references: [id])
+  messages  Message[]
+  
+  @@index([contactId])
+  @@index([userId])
+}
+
+// ============ MENSAGENS ============
+model Message {
+  id        Int     @id @default(autoincrement())
+  content   String
+  type      String  @default("text") // "text", "image", "document", "audio", "video"
+  direction String  @default("in") // "in" ou "out"
+  fileUrl   String?
+  timestamp DateTime @default(now())
+  
+  // Relações
+  conversationId Int
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  @@index([conversationId])
+}
+
+// ============ AUTOMACOES ============
+model Automation {
+  id        Int     @id @default(autoincrement())
+  name      String
+  type      String  // "keyword", "event", "scheduled", "group"
+  keywords  String? // JSON array como string
+  template  String?
+  active    Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relações
+  userId    Int
+  user      User @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+}
+
+// ============ KANBAN ============
+model Pipeline {
+  id        Int     @id @default(autoincrement())
+  name      String
+  stages    String  // JSON array com estágios
+  active    Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  kanbanCards KanbanCard[]
+}
+
+model KanbanCard {
+  id        Int     @id @default(autoincrement())
+  title     String
+  priority  String  @default("medium") // "low", "medium", "high"
+  stage     String  // Estágio atual (ex: "Novo Lead")
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relações
+  contactId Int
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  pipelineId Int
+  pipeline  Pipeline @relation(fields: [pipelineId], references: [id])
+  
+  @@index([contactId])
+  @@index([pipelineId])
+}
+
+// ============ ATIVIDADES ============
+model Activity {
+  id        Int     @id @default(autoincrement())
+  type      String  // "message", "call", "note", "status_change"
+  description String
+  metadata  String? // JSON como string
+  timestamp DateTime @default(now())
+  
+  // Relações
+  contactId Int
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User @relation(fields: [userId], references: [id])
+  
+  @@index([contactId])
+  @@index([userId])
+}
+
+// ============ CONFIGURACOES ============
+model Setting {
+  id        Int     @id @default(autoincrement())
+  key       String  @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// ============ SESSOES WHATSAPP ============
+model WhatsAppSession {
+  id        Int     @id @default(autoincrement())
+  sessionId String  @unique
+  phoneNumber String?
+  status    String  @default("disconnected") // "connected", "disconnected", "qrcode"
+  qrCode    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
