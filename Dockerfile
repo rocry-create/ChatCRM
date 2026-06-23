@@ -36,6 +36,9 @@ RUN pnpm install  --prod
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
+# Copy drizzle files for migrations
+COPY drizzle ./drizzle
+COPY drizzle.config.json ./drizzle.config.json
 
 # Expose port
 EXPOSE 3000

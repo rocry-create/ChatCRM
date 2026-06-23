@@ -1,0 +1,12 @@
+{
+  "schema": "./drizzle/schema.ts",
+  "out": "./drizzle",
+  "dialect": "mysql",
+  "dbCredentials": {
+    "host": "mysql",
+    "port": 3306,
+    "user": "chatcrm",
+    "password": "chatcrm_pass",
+    "database": "chatcrm"
+  }
+}
