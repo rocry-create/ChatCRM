@@ -8,6 +8,7 @@ RUN npm install -g pnpm
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
+COPY patches ./patches
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
@@ -28,6 +29,7 @@ RUN npm install -g pnpm
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
+COPY patches ./patches
 
 # Install only production dependencies
 RUN pnpm install --frozen-lockfile --prod
