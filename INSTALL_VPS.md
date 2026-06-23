@@ -1,556 +1,168 @@
-# Guia de Instalação ChatCRM em VPS
+# Guia de Instalação e Deploy do ChatCRM na VPS
 
-Este guia fornece instruções passo a passo para instalar e configurar o ChatCRM em uma VPS limpa com Ubuntu 20.04 LTS ou superior.
+Este guia detalha os passos para instalar e configurar o ChatCRM em uma Virtual Private Server (VPS) usando Docker, Docker Compose e Nginx.
 
 ## Pré-requisitos
 
-- VPS com Ubuntu 20.04 LTS ou superior
-- Mínimo 2GB de RAM
-- Mínimo 20GB de espaço em disco
-- Acesso SSH como root
-- Domínio apontado para o IP da VPS
-- Conexão com a internet
+Certifique-se de que sua VPS possui os seguintes softwares instalados:
 
-## Instalação Rápida (Recomendada)
+*   **Ubuntu 22.04+** (ou outra distribuição Linux compatível)
+*   **Docker**
+*   **Docker Compose**
+*   **Nginx**
+*   **Git**
+*   **curl**
 
-Se você quer uma instalação automática, execute:
+## 1. Acesso à VPS
 
-```bash
-# Conectar à VPS via SSH
-ssh root@seu-ip-vps
-
-# Download do script de deploy
-wget https://raw.githubusercontent.com/rocry-create/chatcrm/main/deploy.sh
-
-# Executar script
-bash deploy.sh https://github.com/rocry-create/chatcrm.git seu-dominio.com.br
-```
-
-O script fará toda a configuração automaticamente. Pule para a seção "Após a Instalação".
-
-## Instalação Manual
-
-Se preferir instalar manualmente, siga os passos abaixo.
-
-### Passo 1: Conectar à VPS
+Conecte-se à sua VPS via SSH:
 
 ```bash
-ssh root@seu-ip-vps
+ssh root@167.86.101.200
 ```
 
-### Passo 2: Atualizar Sistema
+## 2. Clonar o Repositório
+
+Clone o repositório do ChatCRM para o diretório `/opt`:
 
 ```bash
-apt-get update
-apt-get upgrade -y
+cd /opt
+git clone https://github.com/rocry-create/ChatCRM.git
+cd ChatCRM
 ```
 
-### Passo 3: Instalar Dependências
+## 3. Configurar Variáveis de Ambiente
 
-```bash
-apt-get install -y \
-  curl \
-  wget \
-  git \
-  build-essential \
-  software-properties-common \
-  apt-transport-https \
-  ca-certificates \
-  gnupg \
-  lsb-release
-```
-
-### Passo 4: Instalar Docker
-
-```bash
-# Adicionar repositório Docker
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-
-echo \
-  "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# Instalar Docker
-apt-get update
-apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-
-# Iniciar Docker
-systemctl start docker
-systemctl enable docker
-
-# Verificar instalação
-docker --version
-docker-compose --version
-```
-
-### Passo 5: Instalar Node.js (Opcional)
-
-Se você quer compilar localmente:
-
-```bash
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-apt-get install -y nodejs
-
-# Instalar pnpm
-npm install -g pnpm
-
-# Verificar instalação
-node --version
-pnpm --version
-```
-
-### Passo 6: Instalar Nginx
-
-```bash
-apt-get install -y nginx
-
-# Iniciar Nginx
-systemctl start nginx
-systemctl enable nginx
-```
-
-### Passo 7: Instalar Certbot (SSL)
-
-```bash
-apt-get install -y certbot python3-certbot-nginx
-```
-
-### Passo 8: Configurar Firewall
-
-```bash
-# Instalar UFW
-apt-get install -y ufw
-
-# Permitir SSH
-ufw allow 22/tcp
-
-# Permitir HTTP e HTTPS
-ufw allow 80/tcp
-ufw allow 443/tcp
-
-# Ativar firewall
-ufw --force enable
-
-# Verificar status
-ufw status
-```
-
-### Passo 9: Clonar Repositório
-
-```bash
-# Criar diretório
-mkdir -p /opt/chatcrm
-cd /opt/chatcrm
-
-# Clonar repositório
-git clone https://github.com/rocry-create/chatcrm.git .
-```
-
-### Passo 10: Configurar Variáveis de Ambiente
-
-```bash
-# Copiar arquivo de exemplo
-cp .env.example .env
-
-# Editar arquivo
-nano .env
-```
-
-Configure as seguintes variáveis:
+Crie um arquivo `.env` na raiz do projeto (`/opt/ChatCRM/.env`) com as seguintes variáveis. **É crucial alterar `JWT_SECRET`, `EVOLUTION_API_KEY`, `ADMIN_EMAIL` e `ADMIN_PASSWORD` para valores seguros e únicos.**
 
 ```env
 NODE_ENV=production
 PORT=3000
+
+# Database (MySQL)
 DATABASE_URL=mysql://chatcrm:chatcrm123@mysql:3306/chatcrm
-JWT_SECRET=seu-secret-aleatorio-aqui
+MYSQL_ROOT_PASSWORD=root123
+MYSQL_DATABASE=chatcrm
+MYSQL_USER=chatcrm
+MYSQL_PASSWORD=chatcrm123
+
+# JWT Secret (MUITO IMPORTANTE: Altere para uma chave forte e única!)
+JWT_SECRET=fFeXU/PCIuFXjAyqf99hg7iXPahfCp8+jOAJdXfjf9g=
+
+# Evolution API (Altere a chave para a sua, se tiver uma instância externa)
 EVOLUTION_API_URL=http://evolution-api:8080
-EVOLUTION_API_KEY=sua-chave-api-aqui
-ADMIN_EMAIL=admin@seu-dominio.com.br
-ADMIN_PASSWORD=sua-senha-segura-aqui
+EVOLUTION_API_KEY=iTPWXF2afbdplSvyCDa+bQ==
+
+# Credenciais do Administrador Inicial (Altere para suas credenciais seguras!)
+ADMIN_EMAIL=admin@chatcrm.local
+ADMIN_PASSWORD=admin123
+
+# URL do Servidor OAuth (necessário para o funcionamento interno do SDK, mesmo sem o fluxo OAuth externo)
+OAUTH_SERVER_URL=http://167.86.101.200
 ```
 
-Para gerar secrets seguros:
+## 4. Iniciar os Containers Docker
+
+Navegue até o diretório do projeto e inicie os serviços usando Docker Compose:
 
 ```bash
-# Gerar JWT_SECRET
-openssl rand -base64 32
-
-# Gerar EVOLUTION_API_KEY
-openssl rand -base64 16
+cd /opt/ChatCRM
+docker-compose up -d --build
 ```
 
-### Passo 11: Iniciar Containers Docker
+Isso irá construir as imagens Docker, criar os containers para o MySQL, Evolution API e o ChatCRM, e iniciá-los em segundo plano.
+
+## 5. Configurar o Nginx
+
+Crie um arquivo de configuração para o Nginx em `/etc/nginx/sites-available/chatcrm`:
 
 ```bash
-cd /opt/chatcrm
+cat <<EOF > /etc/nginx/sites-available/chatcrm
+server {
+    listen 80;
+    server_name _;
 
-# Iniciar serviços
-docker-compose up -d
-
-# Verificar status
-docker-compose ps
-
-# Ver logs
-docker-compose logs -f
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
+}
+EOF
 ```
 
-Aguarde alguns minutos para os serviços iniciarem.
-
-### Passo 12: Executar Migrações do Banco
+Crie um link simbólico para habilitar a configuração e remova a configuração padrão do Nginx:
 
 ```bash
-docker-compose exec app pnpm db:push
-```
-
-### Passo 13: Configurar Nginx
-
-```bash
-# Copiar configuração
-cp /opt/chatcrm/nginx.conf /etc/nginx/sites-available/chatcrm
-
-# Editar arquivo para seu domínio
-nano /etc/nginx/sites-available/chatcrm
-```
-
-Substitua `your-domain` pelo seu domínio real.
-
-```bash
-# Habilitar site
-ln -sf /etc/nginx/sites-available/chatcrm /etc/nginx/sites-enabled/chatcrm
-
-# Desabilitar site padrão
+ln -sf /etc/nginx/sites-available/chatcrm /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
-
-# Testar configuração
-nginx -t
-
-# Recarregar Nginx
-systemctl reload nginx
 ```
 
-### Passo 14: Configurar SSL com Certbot
+Reinicie o Nginx para aplicar as alterações:
 
 ```bash
-# Gerar certificado SSL
-certbot --nginx -d seu-dominio.com.br --non-interactive --agree-tos --email admin@seu-dominio.com.br
-
-# Recarregar Nginx
-systemctl reload nginx
-
-# Verificar certificado
-certbot certificates
-```
-
-### Passo 15: Verificar Instalação
-
-```bash
-# Verificar se todos os containers estão rodando
-docker-compose ps
-
-# Verificar logs da aplicação
-docker-compose logs app
-
-# Testar acesso HTTP
-curl http://localhost:3000
-
-# Testar acesso HTTPS
-curl https://seu-dominio.com.br
-```
-
-## Após a Instalação
-
-### 1. Acessar o Sistema
-
-Abra seu navegador e acesse:
-
-```
-https://seu-dominio.com.br
-```
-
-### 2. Fazer Login
-
-Use as credenciais padrão:
-
-- **Email**: `admin@chatcrm.local` (ou conforme configurado)
-- **Senha**: `admin123` (ou conforme configurado)
-
-### 3. Alterar Senha do Admin
-
-1. Clique em "Configurações" > "Perfil"
-2. Altere a senha para algo seguro
-3. Salve as alterações
-
-### 4. Configurar Evolution API
-
-Se estiver usando Evolution API via Docker:
-
-1. Acesse `https://seu-dominio.com.br/settings`
-2. Vá para "Instâncias"
-3. Clique em "Nova Instância"
-4. Preencha os dados:
-   - **Nome da Instância**: ex: "WhatsApp Principal"
-   - **URL da API**: `http://evolution-api:8080`
-   - **Chave da API**: (conforme configurado no `.env`)
-5. Clique em "Salvar"
-
-### 5. Conectar WhatsApp
-
-1. Clique em "Gerar QR Code"
-2. Escaneie com seu WhatsApp
-3. Aguarde a conexão ser estabelecida
-4. Pronto! Seu WhatsApp está conectado
-
-## Comandos Úteis
-
-### Gerenciar Containers
-
-```bash
-# Ver status dos containers
-docker-compose ps
-
-# Ver logs em tempo real
-docker-compose logs -f
-
-# Ver logs de um serviço específico
-docker-compose logs -f app
-
-# Reiniciar todos os serviços
-docker-compose restart
-
-# Reiniciar um serviço específico
-docker-compose restart app
-
-# Parar todos os serviços
-docker-compose down
-
-# Iniciar todos os serviços
-docker-compose up -d
-
-# Reconstruir imagens
-docker-compose build
-docker-compose up -d
-```
-
-### Banco de Dados
-
-```bash
-# Acessar MySQL
-docker-compose exec mysql mysql -u chatcrm -p chatcrm
-
-# Fazer backup do banco
-docker-compose exec mysql mysqldump -u chatcrm -p chatcrm > backup.sql
-
-# Restaurar backup
-docker-compose exec -T mysql mysql -u chatcrm -p chatcrm < backup.sql
-```
-
-### Aplicação
-
-```bash
-# Ver logs da aplicação
-docker-compose logs -f app
-
-# Executar comando na aplicação
-docker-compose exec app pnpm db:push
-
-# Acessar shell do container
-docker-compose exec app sh
-```
-
-### Nginx
-
-```bash
-# Testar configuração
-nginx -t
-
-# Recarregar Nginx
-systemctl reload nginx
-
-# Reiniciar Nginx
 systemctl restart nginx
-
-# Ver logs do Nginx
-tail -f /var/log/nginx/error.log
-tail -f /var/log/nginx/access.log
 ```
 
-### SSL
+## 6. Configurar o Banco de Dados e Usuário Admin
+
+As tabelas do banco de dados e o usuário administrador inicial precisam ser criados. Execute os seguintes comandos dentro do container MySQL:
 
 ```bash
-# Ver certificados
-certbot certificates
-
-# Renovar certificado
-certbot renew
-
-# Renovar certificado forçadamente
-certbot renew --force-renewal
+docker exec chatcrm-mysql mysql -u root -proot123 -e \
+"CREATE DATABASE IF NOT EXISTS chatcrm; USE chatcrm; \
+CREATE TABLE IF NOT EXISTS users (\
+  id INT AUTO_INCREMENT PRIMARY KEY,\
+  name VARCHAR(255) NOT NULL,\
+  email VARCHAR(255) NOT NULL UNIQUE,\
+  password_hash VARCHAR(255) NOT NULL,\
+  role ENUM(\\\"admin\\\", \\\"user\\\") DEFAULT \\\"user\\\",\
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\
+  last_signed_in TIMESTAMP NULL\
+);\
+CREATE TABLE IF NOT EXISTS connections (\
+  id INT AUTO_INCREMENT PRIMARY KEY,\
+  user_id INT NOT NULL,\
+  name VARCHAR(255) NOT NULL,\
+  instance_name VARCHAR(255) NOT NULL UNIQUE,\
+  status VARCHAR(50) DEFAULT \\\"disconnected\\\",\
+  qrcode TEXT,\
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE\
+);"
 ```
 
-## Troubleshooting
-
-### Erro: "Connection refused"
-
-**Problema**: Não consegue conectar à aplicação
-
-**Solução**:
-```bash
-# Verificar se containers estão rodando
-docker-compose ps
-
-# Ver logs
-docker-compose logs app
-
-# Reiniciar containers
-docker-compose restart
-```
-
-### Erro: "Database connection error"
-
-**Problema**: Erro ao conectar ao banco de dados
-
-**Solução**:
-```bash
-# Verificar se MySQL está rodando
-docker-compose ps mysql
-
-# Ver logs do MySQL
-docker-compose logs mysql
-
-# Verificar variável DATABASE_URL no .env
-cat .env | grep DATABASE_URL
-
-# Reiniciar MySQL
-docker-compose restart mysql
-```
-
-### Erro: "Evolution API not responding"
-
-**Problema**: Não consegue conectar à Evolution API
-
-**Solução**:
-```bash
-# Verificar se Evolution API está rodando
-docker-compose ps evolution-api
-
-# Ver logs
-docker-compose logs evolution-api
-
-# Testar conexão
-curl -H "apikey: YOUR_KEY" http://localhost:8080/instance/list
-
-# Reiniciar
-docker-compose restart evolution-api
-```
-
-### Erro: "SSL certificate not found"
-
-**Problema**: Certificado SSL não foi gerado
-
-**Solução**:
-```bash
-# Gerar certificado
-certbot --nginx -d seu-dominio.com.br --non-interactive --agree-tos --email admin@seu-dominio.com.br
-
-# Recarregar Nginx
-systemctl reload nginx
-```
-
-### Erro: "Port already in use"
-
-**Problema**: Porta 3000, 80 ou 443 já está em uso
-
-**Solução**:
-```bash
-# Ver processos usando a porta
-lsof -i :3000
-lsof -i :80
-lsof -i :443
-
-# Matar processo
-kill -9 PID
-
-# Ou alterar porta no docker-compose.yml
-```
-
-## Monitoramento
-
-### Verificar Saúde da Aplicação
+Agora, insira o usuário administrador inicial. A senha `admin123` já está hashada no comando abaixo. Se você alterou `ADMIN_PASSWORD` no `.env`, você precisará gerar um novo hash bcrypt para a sua senha e substituir no comando.
 
 ```bash
-# Health check
-curl https://seu-dominio.com.br/api/trpc/system.health
-
-# Ver uso de recursos
-docker stats
-
-# Ver espaço em disco
-df -h
-
-# Ver uso de memória
-free -h
+docker exec chatcrm-mysql mysql -u root -proot123 -e \
+"USE chatcrm; \
+DELETE FROM users WHERE email=\\\"admin@chatcrm.local\\\";\
+INSERT INTO users (name, email, password_hash, role) \
+VALUES (\\\"Admin\\\", \\\"admin@chatcrm.local\\\", \\\"\$2a\$10\$J4n9YXk3XYMNcJae.6N1G.6bxPgonfs57j2rnW.SWWMEtFX0PsFFq\\\", \\\"admin\\\");"
 ```
 
-### Logs
+## 7. Acessar o ChatCRM
 
-```bash
-# Logs da aplicação
-docker-compose logs -f app
+Após a conclusão de todos os passos, o ChatCRM estará acessível através do IP da sua VPS:
 
-# Logs do Nginx
-tail -f /var/log/nginx/access.log
+[http://167.86.101.200](http://167.86.101.200)
 
-# Logs do sistema
-journalctl -u docker -f
-```
+**Credenciais de Login (Iniciais):**
+*   **Email**: `admin@chatcrm.local`
+*   **Senha**: `admin123`
 
-## Backup e Restauração
+**Lembre-se de alterar a senha do administrador após o primeiro login!**
 
-### Fazer Backup
+## Resolução de Problemas Comuns
 
-```bash
-# Backup do banco de dados
-docker-compose exec mysql mysqldump -u chatcrm -p chatcrm > /backup/chatcrm-$(date +%Y%m%d).sql
+*   **`KeyError: 'ContainerConfig'` ao rodar `docker-compose up`**: Isso geralmente ocorre devido a uma versão antiga do `docker-compose`. Tente usar `docker compose up -d` (com um espaço) ou atualize seu Docker Compose.
+*   **Erros de conexão com o MySQL**: Verifique os logs do container `chatcrm-mysql` (`docker logs chatcrm-mysql`) para garantir que ele iniciou corretamente e que as senhas no `.env` correspondem às configuradas no `docker-compose.yml`.
+*   **`OAUTH_SERVER_URL is not configured`**: Certifique-se de que a variável `OAUTH_SERVER_URL` está definida no seu arquivo `.env` e que o container `chatcrm-app` foi recriado após a alteração.
+*   **Página em branco ou 404**: Verifique os logs do Nginx (`sudo tail -f /var/log/nginx/error.log`) e do container `chatcrm-app` (`docker logs chatcrm-app`). Certifique-se de que o Nginx está configurado para fazer proxy para a porta 3000 do container `chatcrm-app`.
 
-# Backup de arquivos
-tar -czf /backup/chatcrm-files-$(date +%Y%m%d).tar.gz /opt/chatcrm
-```
-
-### Restaurar Backup
-
-```bash
-# Restaurar banco de dados
-docker-compose exec -T mysql mysql -u chatcrm -p chatcrm < /backup/chatcrm-20260623.sql
-
-# Restaurar arquivos
-tar -xzf /backup/chatcrm-files-20260623.tar.gz -C /
-```
-
-## Atualizações
-
-### Atualizar ChatCRM
-
-```bash
-cd /opt/chatcrm
-
-# Atualizar código
-git pull origin main
-
-# Reconstruir imagens
-docker-compose build
-
-# Reiniciar serviços
-docker-compose up -d
-
-# Executar migrações (se houver)
-docker-compose exec app pnpm db:push
-```
-
-## Suporte
-
-Para problemas ou dúvidas, abra uma issue no GitHub:
-https://github.com/rocry-create/chatcrm/issues
-
----
-
-**Última atualização**: 2026-06-23
+Se você encontrar problemas, revise os logs dos containers e do Nginx para identificar a causa.
