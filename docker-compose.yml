@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: chatcrm-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
+      MYSQL_DATABASE: chatcrm
+      MYSQL_USER: chatcrm
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-chatcrm123}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - chatcrm-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  evolution-api:
+    image: atendai/evolution-api:latest
+    container_name: chatcrm-evolution
+    environment:
+      SERVER_URL: http://localhost:8080
+      API_PORT: 8080
+      API_KEY: ${EVOLUTION_API_KEY:-your-evolution-api-key}
+    ports:
+      - "8080:8080"
+    volumes:
+      - evolution_data:/app/instances
+    networks:
+      - chatcrm-network
+    depends_on:
+      - mysql
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chatcrm-app
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: mysql://chatcrm:${MYSQL_PASSWORD:-chatcrm123}@mysql:3306/chatcrm
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      EVOLUTION_API_URL: http://evolution-api:8080
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-your-evolution-api-key}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@chatcrm.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+    ports:
+      - "3000:3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      evolution-api:
+        condition: service_started
+    networks:
+      - chatcrm-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  evolution_data:
+
+networks:
+  chatcrm-network:
+    driver: bridge
